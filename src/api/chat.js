@@ -8,27 +8,42 @@ export default async function handler(req, res) {
       if (!prompt) return res.status(400).json({ error: "Missing prompt" });
   
       const apiKey = process.env.OPENAI_API_KEY;
-      if (!apiKey) return res.status(500).json({ error: "Missing OPENAI_API_KEY" });
+      if (!apiKey) {
+        return res.status(500).json({
+          error: "Missing OPENAI_API_KEY (add it in Vercel Environment Variables)",
+        });
+      }
   
-      const r = await fetch("https://api.openai.com/v1/chat/completions", {
+      // OpenAI HTTP call (server-side)
+      const r = await fetch("https://api.openai.com/v1/responses", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [{ role: "user", content: prompt }],
+          model: "gpt-4.1-mini",
+          input: prompt,
         }),
       });
   
       const data = await r.json();
-      if (!r.ok) return res.status(r.status).json(data);
   
-      const text = data?.choices?.[0]?.message?.content ?? "";
+      if (!r.ok) {
+        return res.status(r.status).json({
+          error: data?.error?.message || "OpenAI request failed",
+          details: data,
+        });
+      }
+  
+      // `responses` API returns text in output arrays; this extracts it safely
+      const text =
+        data?.output?.[0]?.content?.map((c) => c?.text).filter(Boolean).join("") ||
+        "";
+  
       return res.status(200).json({ text });
     } catch (e) {
-      return res.status(500).json({ error: String(e) });
+      return res.status(500).json({ error: e?.message || "Server error" });
     }
   }
   

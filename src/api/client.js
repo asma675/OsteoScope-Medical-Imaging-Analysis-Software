@@ -1,4 +1,3 @@
-
 const DB_KEY = "osteoscope_db_v1";
 
 function loadDB() {
@@ -20,7 +19,6 @@ function saveDB(db) {
 }
 
 function ensureSeed(db) {
-  // Seed a default user if none exists (prevents crashes in Layout.jsx/User.me patterns)
   if (!db.User.length) {
     db.User.push({
       id: "user_1",
@@ -38,7 +36,6 @@ function genId(prefix = "id") {
 }
 
 function sortByField(data, sort) {
-  // sort like "-created_date" or "created_date"
   if (!sort) return data;
   const desc = String(sort).startsWith("-");
   const field = desc ? String(sort).slice(1) : String(sort);
@@ -47,7 +44,6 @@ function sortByField(data, sort) {
     const av = a?.[field];
     const bv = b?.[field];
 
-    // date-ish values
     const ad = av ? new Date(av).getTime() : 0;
     const bd = bv ? new Date(bv).getTime() : 0;
 
@@ -57,7 +53,6 @@ function sortByField(data, sort) {
 }
 
 function matchesWhere(row, where = {}) {
-  // simple equality match
   for (const [k, v] of Object.entries(where || {})) {
     if (v === undefined) continue;
     if (row?.[k] !== v) return false;
@@ -68,7 +63,7 @@ function matchesWhere(row, where = {}) {
 function makeEntity(modelName) {
   return {
     async list(orderBy, limit) {
-      let db = ensureSeed(loadDB());
+      const db = ensureSeed(loadDB());
       let rows = db[modelName] || [];
       rows = sortByField(rows, orderBy);
       if (typeof limit === "number") rows = rows.slice(0, limit);
@@ -76,7 +71,7 @@ function makeEntity(modelName) {
     },
 
     async filter(where, orderBy, limit) {
-      let db = ensureSeed(loadDB());
+      const db = ensureSeed(loadDB());
       let rows = (db[modelName] || []).filter((r) => matchesWhere(r, where));
       rows = sortByField(rows, orderBy);
       if (typeof limit === "number") rows = rows.slice(0, limit);
@@ -84,12 +79,12 @@ function makeEntity(modelName) {
     },
 
     async get(id) {
-      let db = ensureSeed(loadDB());
+      const db = ensureSeed(loadDB());
       return (db[modelName] || []).find((r) => r.id === id) || null;
     },
 
     async create(payload) {
-      let db = ensureSeed(loadDB());
+      const db = ensureSeed(loadDB());
       const row = {
         id: genId(modelName.toLowerCase()),
         created_date: new Date().toISOString(),
@@ -101,7 +96,7 @@ function makeEntity(modelName) {
     },
 
     async update(id, patch) {
-      let db = ensureSeed(loadDB());
+      const db = ensureSeed(loadDB());
       const rows = db[modelName] || [];
       const idx = rows.findIndex((r) => r.id === id);
       if (idx === -1) throw new Error(`${modelName} not found`);
@@ -112,7 +107,7 @@ function makeEntity(modelName) {
     },
 
     async remove(id) {
-      let db = ensureSeed(loadDB());
+      const db = ensureSeed(loadDB());
       db[modelName] = (db[modelName] || []).filter((r) => r.id !== id);
       saveDB(db);
       return { ok: true };
@@ -125,7 +120,6 @@ export const apiClient = {
     XRayAnalysis: makeEntity("XRayAnalysis"),
     User: {
       ...makeEntity("User"),
-      // common pattern: User.me()
       async me() {
         const db = ensureSeed(loadDB());
         saveDB(db);
@@ -133,11 +127,9 @@ export const apiClient = {
       },
     },
   },
-  ,
+
   integrations: {
     async UploadFile({ file }) {
-      // Stores as a data URL (base64) so the app stays fully client-side.
-      // Returns a URL usable in <img src="...">.
       if (!file) throw new Error("UploadFile: missing file");
       const dataUrl = await new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -149,13 +141,13 @@ export const apiClient = {
     },
 
     async SendEmail(_payload) {
-      // Placeholder for future integration
       return { ok: true };
     },
 
     async InvokeLLM({ prompt, system, temperature, model }) {
-      // Prefer serverless route (Vercel). Optional client-side key for local demos.
       const clientKey = import.meta?.env?.VITE_OPENAI_API_KEY;
+
+      // ✅ Local demo ONLY (exposes key to browser). Prefer server route on Vercel.
       if (clientKey) {
         const chosenModel = model || "gpt-4o-mini";
         const r = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -173,25 +165,29 @@ export const apiClient = {
             ],
           }),
         });
+
         if (!r.ok) {
           const t = await r.text().catch(() => "");
           throw new Error(`LLM request failed (${r.status}): ${t}`);
         }
+
         const data = await r.json();
         return { output: data?.choices?.[0]?.message?.content ?? "" };
       }
 
+      // ✅ Vercel serverless route (recommended)
       const resp = await fetch("/api/llm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt, system, temperature, model }),
       });
+
       if (!resp.ok) {
         const t = await resp.text().catch(() => "");
         throw new Error(`LLM request failed (${resp.status}): ${t}`);
       }
+
       return await resp.json();
     },
-  }
-
+  },
 };

@@ -147,7 +147,6 @@ export const apiClient = {
     async InvokeLLM({ prompt, system, temperature, model }) {
       const clientKey = import.meta?.env?.VITE_OPENAI_API_KEY;
 
-      // ✅ Local demo ONLY (exposes key to browser). Prefer server route on Vercel.
       if (clientKey) {
         const chosenModel = model || "gpt-4o-mini";
         const r = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -175,7 +174,7 @@ export const apiClient = {
         return { output: data?.choices?.[0]?.message?.content ?? "" };
       }
 
-      // ✅ Vercel serverless route (recommended)
+      // Vercel serverless route 
       const resp = await fetch("/api/llm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

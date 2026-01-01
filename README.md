@@ -37,7 +37,3 @@ Then restart the dev server.
 ## Data storage
 
 All data is stored locally in the browser via `localStorage`.
-
-## Attribution
-
-This project began as a rapid prototype using a third-party app builder and was then migrated into a standalone codebase (Vite + React) for portability.
